@@ -81,7 +81,6 @@ export class CodeReviewOrchestrator {
                       'refactoring-suggester': refactoringSuggester,
                     },
                     mcpServers: mcpServersConfig,
-                    tools: ['Task', 'Skill', 'Read', 'Grep', 'Glob'],
                     allowedTools: [
                       'Task',
                       'Skill',
