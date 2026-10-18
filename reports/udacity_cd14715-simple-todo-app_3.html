@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Review Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1000px;
+      margin: 0 auto; padding: 24px; background: #f8f9fa; color: #212529; }
+    .summary, .file-review { background: white; padding: 20px;
+      margin: 20px 0; border-radius: 8px; }
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; }
+    .metric { text-align: center; }
+    .metric-value { font-size: 1.8em; font-weight: bold; }
+    .rec-critical { border-left: 4px solid #e74c3c; }
+    .rec-high { border-left: 4px solid #f39c12; }
+    .rec-medium { border-left: 4px solid #3498db; }
+    .rec-low { border-left: 4px solid #27ae60; }
+    li { margin: 8px 0; padding: 8px; overflow-wrap: anywhere; }
+    small { color: #555; }
+  </style>
+</head>
+<body>
+  <h1>Code Review Report</h1>
+  <div class="summary">
+    <div class="metric"><div class="metric-value">25</div>Overall score / 100</div>
+    <div class="metric"><div class="metric-value">1</div>Files reviewed</div>
+    <div class="metric"><div class="metric-value">5</div>Critical issues</div>
+    <div class="metric"><div class="metric-value">11</div>High-priority tests</div>
+    <div class="metric"><div class="metric-value">11</div>Refactoring opportunities</div>
+  </div>
+
+  <h2>Top recommendations</h2>
+  <ul>
+      <li class="rec-critical">
+        <strong>[CRITICAL] Security - PCI-DSS Compliance</strong>:
+        The code handles raw payment card data (card numbers, CVV) directly in the application, violating PCI-DSS compliance requirements. This creates severe security and legal risks. Immediately integrate with a PCI-compliant payment processor (Stripe, Braintree, PayPal) that uses tokenization to handle sensitive card data. Never process, store, or log raw card numbers or CVV codes in application code.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    
+      <li class="rec-critical">
+        <strong>[CRITICAL] Security - Authentication &amp; Authorization</strong>:
+        All exported functions lack authentication and authorization checks. Any code can call processPremiumPayment() or hasFeatureAccess() for any userId without verifying the caller&#39;s identity. This allows unauthorized payment processing and subscription manipulation. Add authentication middleware and verify that the authenticated user matches the userId parameter to prevent privilege escalation attacks.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    
+      <li class="rec-critical">
+        <strong>[CRITICAL] Testing - Zero Test Coverage</strong>:
+        The entire payment processing module has 0% test coverage despite handling critical financial transactions. All 7 functions are completely untested, including payment validation, card charging, subscription management, and feature authorization. This creates unacceptable risk for production deployment. Immediately create comprehensive unit and integration tests covering all functions, edge cases, and error paths before any production use.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    
+      <li class="rec-critical">
+        <strong>[CRITICAL] Security - Data Leakage</strong>:
+        Sensitive payment data is logged to console on errors (line 125), potentially exposing full card numbers, CVV, and other PCI data in application logs. This violates PCI-DSS requirements and creates a serious data breach risk. Remove all logging of PaymentDetails objects and implement structured logging that explicitly filters sensitive fields, logging only safe identifiers like last 4 digits or transaction IDs.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    
+      <li class="rec-critical">
+        <strong>[CRITICAL] Data Integrity - Transaction Management</strong>:
+        Payment processing lacks transaction management. If chargeCard() succeeds but upgradeUserSubscription() fails, the customer is charged without receiving their subscription. This creates financial discrepancies and customer service issues. Implement database transactions or compensating transactions to ensure atomicity. Consider using payment processor webhooks for asynchronous subscription activation to handle failures gracefully.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    </ul>
+
+  <h2>File reviews</h2>
+  
+        <section class="file-review">
+          <h2>src/premium.ts</h2>
+          <p>Quality score: 25/100 |
+             Estimated coverage: 0% |
+             Has tests: No</p>
+          <p>Critical security vulnerabilities: handles raw payment card data violating PCI-DSS compliance, lacks authentication/authorization, logs sensitive data, and has no audit trail. Multiple bug risks including incorrect date comparisons, missing error handling for JSON parsing, and no transaction management for payments. High severity issues with payment validation, data integrity, and missing input validation. Code requires complete refactoring to use a payment processor SDK, implement proper authentication, add comprehensive error handling, and establish audit logging before production use.</p>
+          <h3>Code quality issues (24)</h3>
+          <ul>
+        <li><strong>Line 18 — critical</strong>:
+          PaymentDetails interface stores sensitive payment data (cardNumber, cvv) in plain text without any encryption or protection mechanism
+          <br><small>Suggestion: Never store or log full card numbers and CVV. Use tokenization via a PCI-DSS compliant payment gateway (Stripe, PayPal). Only store the last 4 digits and a payment token. This violates PCI-DSS compliance requirements.</small>
+        </li>
+      
+        <li><strong>Line 27 — critical</strong>:
+          Payment processing function accepts raw card details directly, creating PCI-DSS compliance violations and security risks
+          <br><small>Suggestion: Integrate with a payment processor SDK (Stripe, Braintree) that handles card data securely. Never process raw card data in your application code. Use tokenization where the payment form sends card data directly to the payment processor.</small>
+        </li>
+      
+        <li><strong>Line 64 — high</strong>:
+          Card validation performs only basic format checks without proper Luhn algorithm validation, allowing invalid card numbers through
+          <br><small>Suggestion: Implement Luhn algorithm (mod-10 checksum) for card number validation. However, this validation should occur client-side only with a PCI-compliant payment form, not in server code handling raw card data.</small>
+        </li>
+      
+        <li><strong>Line 82 — high</strong>:
+          Date comparison for card expiry uses &#39;new Date()&#39; which includes time, but expiry should only compare month/year. A card expiring in the current month will fail validation prematurely
+          <br><small>Suggestion: Compare only year and month: &#39;const now = new Date(); const expiryMonth = parseInt(month); const expiryYear = 2000 + parseInt(year); if (expiryYear &lt; now.getFullYear() || (expiryYear === now.getFullYear() &amp;&amp; expiryMonth &lt; now.getMonth() + 1)) { return false; }&#39;</small>
+        </li>
+      
+        <li><strong>Line 113 — critical</strong>:
+          Payment card data is logged to console on error, potentially exposing sensitive information in logs. The payment object contains full card number and CVV
+          <br><small>Suggestion: Remove or redact sensitive data before logging. Use structured logging with explicit field filtering: &#39;console.error(&#39;Payment failed for card ending in&#39;, lastFour, error.message)&#39;. Never log full card details, CVV, or other PCI data.</small>
+        </li>
+      
+        <li><strong>Line 108 — high</strong>:
+          SQL query uses parameterized queries correctly, but does not validate that the amount and lastFour are properly sanitized before insertion
+          <br><small>Suggestion: Add explicit validation: ensure &#39;amount&#39; is a positive number and &#39;lastFour&#39; is exactly 4 digits. While parameterized queries prevent SQL injection, input validation is still necessary for data integrity.</small>
+        </li>
+      
+        <li><strong>Line 133 — medium</strong>:
+          SQL query uses ON CONFLICT UPDATE without verifying the existing subscription tier, allowing potential downgrade attacks or subscription manipulation
+          <br><small>Suggestion: Add business logic validation before updating: check if the new tier is an upgrade, log the change for audit purposes, and consider requiring additional verification for tier changes.</small>
+        </li>
+      
+        <li><strong>Line 150 — medium</strong>:
+          Database query assumes &#39;rows&#39; is an array but db.query return type is not validated. If the database library returns undefined or different structure, it will cause runtime errors
+          <br><small>Suggestion: Add type guards and null checks: &#39;if (!rows || !Array.isArray(rows) || rows.length === 0) { return false; }&#39;. Consider defining a proper return type for db.query.</small>
+        </li>
+      
+        <li><strong>Line 157 — medium</strong>:
+          Date comparison uses &#39;validUntil &lt; new Date()&#39; which fails for subscriptions expiring today. Should allow access until end of expiry date
+          <br><small>Suggestion: Compare dates without time component or use &#39;&lt;=&#39; with end-of-day: &#39;const today = new Date(); today.setHours(0,0,0,0); const expiryDate = new Date(validUntil); expiryDate.setHours(23,59,59,999); if (expiryDate &lt; today) { return false; }&#39;</small>
+        </li>
+      
+        <li><strong>Line 162 — high</strong>:
+          JSON.parse is called on database data without try-catch, creating a potential denial-of-service vector if malformed JSON is stored
+          <br><small>Suggestion: Wrap JSON.parse in try-catch and return false on parse failure: &#39;try { const features = JSON.parse(subscription.features); return features.includes(feature); } catch (error) { console.error(&#39;Invalid features JSON for user&#39;, userId); return false; }&#39;</small>
+        </li>
+      
+        <li><strong>Line 184 — medium</strong>:
+          JSON.parse without error handling can crash the application if corrupted data exists in the database
+          <br><small>Suggestion: Add try-catch around JSON.parse with appropriate error handling: &#39;try { features: JSON.parse(row.features) } catch { features: [] }&#39;. Consider using a data migration to fix any corrupted JSON in the database.</small>
+        </li>
+      
+        <li><strong>Line 1 — high</strong>:
+          No authentication or authorization checks in any exported functions. Any code can call processPremiumPayment or hasFeatureAccess without verifying the caller&#39;s identity or permissions
+          <br><small>Suggestion: Add authentication middleware or require an authenticated session/token parameter. Verify that the authenticated user matches the userId parameter to prevent unauthorized subscription upgrades or feature access checks for other users.</small>
+        </li>
+      
+        <li><strong>Line 27 — medium</strong>:
+          Async function processPremiumPayment does not handle database transaction failures. If upgradeUserSubscription fails after chargeCard succeeds, money is charged without granting subscription
+          <br><small>Suggestion: Wrap payment and subscription upgrade in a database transaction or implement compensating transactions. If upgradeUserSubscription fails, issue a refund. Consider using a payment processor webhook for subscription activation instead of inline processing.</small>
+        </li>
+      
+        <li><strong>Line 94 — low</strong>:
+          Pricing constants (TAX_RATE, PROCESSING_FEE) are hardcoded in the function. These should be configurable as they vary by jurisdiction and payment processor
+          <br><small>Suggestion: Move pricing configuration to a separate configuration file or environment variables: &#39;const TAX_RATE = parseFloat(process.env.TAX_RATE || &#39;0.08&#39;)&#39;. Consider implementing jurisdiction-based tax calculation.</small>
+        </li>
+      
+        <li><strong>Line 122 — low</strong>:
+          Feature lists are hardcoded in the function. Adding or removing features requires code changes and deployment
+          <br><small>Suggestion: Store feature definitions in a database table or configuration file that can be updated without code deployment. Create a feature_tiers table mapping tiers to features.</small>
+        </li>
+      
+        <li><strong>Line 64 — medium</strong>:
+          validatePaymentDetails only checks format but does not validate card type (Visa, MasterCard, etc.) or perform network validation, allowing potentially invalid card types
+          <br><small>Suggestion: Implement BIN (Bank Identification Number) validation to determine card type from the first 6 digits. However, real validation should be delegated to the payment processor, not implemented in application code.</small>
+        </li>
+      
+        <li><strong>Line 7 — medium</strong>:
+          Database import &#39;./database&#39; is not validated for connection health or error handling. If database connection fails, all functions will crash
+          <br><small>Suggestion: Add connection health checks and proper error handling for database operations. Consider implementing retry logic and circuit breaker patterns for database calls.</small>
+        </li>
+      
+        <li><strong>Line 125 — low</strong>:
+          Subscription validity calculation uses &#39;setFullYear(getFullYear() + 1)&#39; which can produce incorrect results for leap year edge cases (e.g., Feb 29)
+          <br><small>Suggestion: Use a date library like date-fns or explicitly handle edge cases: &#39;const validUntil = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)&#39; or validate the resulting date is valid.</small>
+        </li>
+      
+        <li><strong>Line 133 — low</strong>:
+          Features array is converted to JSON string on every subscription update. For large feature sets or high-volume operations, this adds unnecessary overhead
+          <br><small>Suggestion: Consider using PostgreSQL&#39;s native JSON/JSONB type with array operations, or use a junction table (subscription_features) for better query performance and flexibility.</small>
+        </li>
+      
+        <li><strong>Line 150 — low</strong>:
+          hasFeatureAccess makes a database query on every check. For frequently accessed features, this creates unnecessary database load
+          <br><small>Suggestion: Implement caching for subscription data using Redis or in-memory cache with short TTL (e.g., 5 minutes). Cache the subscription object keyed by userId to reduce database queries.</small>
+        </li>
+      
+        <li><strong>Line 27 — high</strong>:
+          No audit logging for payment processing or subscription changes. Critical financial operations should be logged for compliance and fraud detection
+          <br><small>Suggestion: Add comprehensive audit logging: log all payment attempts (success/failure), subscription changes, and feature access checks with timestamp, userId, IP address, and outcome. Store in a separate audit_log table.</small>
+        </li>
+      
+        <li><strong>Line 48 — medium</strong>:
+          Error thrown &#39;Invalid payment details&#39; does not specify which validation failed, making debugging difficult and providing poor user experience
+          <br><small>Suggestion: Return detailed validation errors: &#39;throw new Error(`Invalid payment: ${validationErrors.join(&#39;, &#39;)}`)&#39; or return a structured error object with specific field errors for the UI to display.</small>
+        </li>
+      
+        <li><strong>Line 40 — medium</strong>:
+          Payment amount comparison uses strict less-than, but should account for floating-point precision errors when comparing currency amounts
+          <br><small>Suggestion: Use integer arithmetic for money (store cents/pennies as integers) or use a decimal library like decimal.js: &#39;if (payment.amount + 0.001 &lt; amount)&#39; to account for rounding. Better: &#39;const paymentCents = Math.round(payment.amount * 100); const requiredCents = Math.round(amount * 100);&#39;</small>
+        </li>
+      
+        <li><strong>Line 178 — low</strong>:
+          getUserSubscription returns null for non-existent subscriptions, but does not distinguish between database errors and missing subscriptions
+          <br><small>Suggestion: Return a discriminated union or Result type: &#39;{ success: true, subscription: Subscription } | { success: false, error: string }&#39; to distinguish between errors and missing data. Or throw errors and let null represent &#39;no subscription&#39;.</small>
+        </li>
+      </ul>
+          <h3>Test gaps (19)</h3>
+          <ul>
+        <li><strong>critical — processPremiumPayment (lines 27-58)</strong>:
+          Critical payment processing logic handling real financial transactions with multiple failure paths (validation, charging, upgrade). No tests verify payment success, validation failures, insufficient amount errors, or charge failures.
+          <br><small>Suggested test: Unit tests covering: successful payment flow, invalid payment details rejection, insufficient payment amount error, failed charge handling, database error during upgrade, and end-to-end integration test with mocked payment gateway</small>
+        </li>
+      
+        <li><strong>critical — validatePaymentDetails (lines 64-91)</strong>:
+          Security-critical payment validation function with no tests. Handles card number length, CVV validation, expiry format, and expiry date checking. Improper validation could allow invalid payments or reject valid ones.
+          <br><small>Suggested test: Unit tests for: valid 16-digit card numbers, invalid card lengths, 3-digit and 4-digit CVV validation, invalid CVV lengths, valid MM/YY format, invalid expiry formats, expired cards, valid future expiry dates, edge cases like 12/99 vs 13/99, current month expiry</small>
+        </li>
+      
+        <li><strong>high — validatePaymentDetails - expiry date parsing (lines 83-88)</strong>:
+          Date comparison logic for card expiry has edge cases: cards expiring in current month, year 2100+ handling, timezone issues. The code adds 2000 to two-digit year which may fail after 2099.
+          <br><small>Suggested test: Edge case tests for: card expiring today, card expiring this month, card expiring next month, cards with year &gt; 99, timezone boundary conditions, leap year edge cases</small>
+        </li>
+      
+        <li><strong>high — calculateSubscriptionPrice (lines 97-109)</strong>:
+          Pricing calculation logic determines actual charge amounts. No tests verify correct tax and fee calculations, which could lead to overcharging or undercharging customers.
+          <br><small>Suggested test: Unit tests verifying: premium tier price (9.99 + 8% tax + 2.9% fee = 11.0889), enterprise tier price (49.99 + 8% tax + 2.9% fee = 55.4389), rounding behavior, precision handling for currency</small>
+        </li>
+      
+        <li><strong>critical — chargeCard (lines 115-128)</strong>:
+          Directly inserts payment data into database without tests. Handles database errors but doesn&#39;t verify correct data insertion, SQL injection safety (via parameterized queries), or error recovery.
+          <br><small>Suggested test: Unit tests with mocked database: successful charge insertion, database error handling, correct parameters passed (last 4 digits, amount, status), verification that full card number is never stored, SQL injection safety tests</small>
+        </li>
+      
+        <li><strong>medium — chargeCard - card number slicing (line 117)</strong>:
+          Assumes card number has at least 4 characters when using slice(-4). If validation fails elsewhere, this could cause issues or expose partial invalid card numbers.
+          <br><small>Suggested test: Edge case tests for: card numbers shorter than 4 digits, empty card number, malformed input after validation bypass</small>
+        </li>
+      
+        <li><strong>high — upgradeUserSubscription (lines 134-147)</strong>:
+          Modifies user subscription tier and features in database without tests. No verification of correct feature assignment, date calculation (1 year from now), or upsert logic for existing subscriptions.
+          <br><small>Suggested test: Unit tests for: new subscription creation, existing subscription upgrade, premium features list correctness, enterprise features list correctness, valid_until date is exactly 1 year from now, ON CONFLICT behavior, JSON serialization of features array</small>
+        </li>
+      
+        <li><strong>medium — upgradeUserSubscription - feature assignment (lines 135-137)</strong>:
+          Different feature sets for premium vs enterprise tiers. No tests verify correct features are assigned for each tier, risking giving wrong permissions.
+          <br><small>Suggested test: Tests verifying: premium gets [&#39;unlimited_todos&#39;, &#39;priority_support&#39;, &#39;custom_themes&#39;], enterprise gets all premium features plus [&#39;api_access&#39;, &#39;team_collaboration&#39;]</small>
+        </li>
+      
+        <li><strong>critical — hasFeatureAccess (lines 153-171)</strong>:
+          Authorization function controlling access to premium features. No tests for subscription expiry checking, missing subscriptions, feature inclusion logic, or JSON parsing errors. Authorization bugs could allow unauthorized access.
+          <br><small>Suggested test: Unit tests for: user with valid subscription and feature returns true, user without subscription returns false, expired subscription returns false, valid subscription without requested feature returns false, subscription expiring today, malformed JSON in features field</small>
+        </li>
+      
+        <li><strong>high — hasFeatureAccess - no subscription (lines 157-159)</strong>:
+          Returns false when no subscription found, but doesn&#39;t verify this path is tested. Critical for security to ensure users without subscriptions can&#39;t access premium features.
+          <br><small>Suggested test: Test that users with no subscription record return false for any feature check</small>
+        </li>
+      
+        <li><strong>critical — hasFeatureAccess - expired subscription (lines 164-166)</strong>:
+          Subscription expiry check controls ongoing access. No tests verify expired subscriptions are properly denied, which could allow free continued access after cancellation.
+          <br><small>Suggested test: Tests for: subscription expired yesterday, subscription expiring today, subscription expiring in future, timezone edge cases for expiry</small>
+        </li>
+      
+        <li><strong>high — hasFeatureAccess - JSON parsing (line 169)</strong>:
+          JSON.parse() can throw on malformed data. No error handling or tests for corrupted features data in database, which would crash the authorization check.
+          <br><small>Suggested test: Error handling tests for: malformed JSON in features field, null features, empty string, non-array JSON, database returning unexpected data types</small>
+        </li>
+      
+        <li><strong>high — getUserSubscription (lines 177-193)</strong>:
+          Retrieves and transforms subscription data. No tests verify correct data mapping, null handling, date parsing, JSON deserialization, or type casting (row.tier matches Subscription type).
+          <br><small>Suggested test: Unit tests for: user with subscription returns correct Subscription object, user without subscription returns null, correct mapping of all fields (userId, tier, validUntil, features), Date parsing from database timestamp, JSON parsing of features array</small>
+        </li>
+      
+        <li><strong>medium — getUserSubscription - type casting (lines 187-192)</strong>:
+          Assumes database row fields match expected types without runtime validation. If database schema changes or contains invalid tier values (&#39;basic&#39;, &#39;trial&#39;), TypeScript types won&#39;t catch it at runtime.
+          <br><small>Suggested test: Tests for: tier value is actually &#39;free&#39;, &#39;premium&#39;, or &#39;enterprise&#39;, invalid tier values in database, missing fields, type mismatches, schema migration edge cases</small>
+        </li>
+      
+        <li><strong>high — processPremiumPayment - payment amount validation (lines 44-46)</strong>:
+          Only checks if payment.amount &lt; calculated amount, but doesn&#39;t handle overpayment, floating point precision issues, or negative amounts passed in payment details.
+          <br><small>Suggested test: Edge case tests for: exact amount match, overpayment (should succeed), underpayment by 0.01, floating point precision (9.989999 vs 9.99), negative payment amounts, zero payment amount, very large payment amounts</small>
+        </li>
+      
+        <li><strong>critical — processPremiumPayment - transaction atomicity (lines 49-55)</strong>:
+          Payment charging and subscription upgrade are separate async operations without transaction management or rollback. If chargeCard succeeds but upgradeUserSubscription fails, user is charged but not upgraded.
+          <br><small>Suggested test: Integration tests for: successful payment and upgrade, charge succeeds but upgrade fails (should handle rollback or compensation), database transaction isolation, idempotency of retry scenarios</small>
+        </li>
+      
+        <li><strong>critical — Security: Payment card data logging (line 125)</strong>:
+          console.error logs payment errors but could accidentally log sensitive payment details. PCI-DSS compliance requires no logging of full card numbers, CVV, or other sensitive payment data.
+          <br><small>Suggested test: Security tests ensuring: error logs never contain full card numbers, error logs never contain CVV, error logs never contain sensitive payment data, only last 4 digits or transaction IDs are logged</small>
+        </li>
+      
+        <li><strong>high — Security: SQL injection via parameterized queries (lines 116, 143, 155, 179)</strong>:
+          Code uses parameterized queries which is correct, but no tests verify SQL injection attempts are safely handled or that queries remain parameterized during refactoring.
+          <br><small>Suggested test: Security tests with malicious inputs: userId with SQL injection attempts (&#39;; DROP TABLE--), features containing SQL, amounts with SQL injection, verify all queries use parameterization</small>
+        </li>
+      
+        <li><strong>critical — Security: Sensitive payment data in PaymentDetails interface (lines 17-22)</strong>:
+          PaymentDetails interface includes cardNumber, cvv, and expiryDate in plain text. No tests verify these are never logged, stored unencrypted, or exposed in responses. PCI-DSS requires protection of this data.
+          <br><small>Suggested test: Security tests ensuring: PaymentDetails objects are never serialized to logs, never returned in API responses, never stored in database (only last 4 digits), proper memory cleanup after processing</small>
+        </li>
+      </ul>
+          <h3>Refactoring suggestions (11)</h3>
+          <ul>
+        <li><strong>pattern-improvement — high</strong>:
+          Extract payment processing into a dedicated service class with dependency injection to improve testability and separation of concerns
+          <br><small>Benefit: Enables dependency injection for testing, separates concerns, makes payment gateway mockable, improves testability of critical business logic, and follows SOLID principles</small>
+        </li>
+      
+        <li><strong>pattern-improvement — high</strong>:
+          Create value objects for sensitive payment data to encapsulate validation and prevent exposure of raw card data
+          <br><small>Benefit: Encapsulates validation logic, prevents invalid states, improves type safety, reduces duplication, makes business rules explicit, and limits exposure of sensitive data</small>
+        </li>
+      
+        <li><strong>extract-function — medium</strong>:
+          Extract expiry date validation into a separate function for better reusability and testability
+          <br><small>Benefit: Improves modularity, makes each validation independently testable, enables reuse of validation logic, and improves readability with clear function names</small>
+        </li>
+      
+        <li><strong>modernize — medium</strong>:
+          Extract pricing configuration and calculation logic into a separate pricing service with better structure
+          <br><small>Benefit: Makes pricing configuration explicit and easy to modify, improves testability, centralizes pricing logic, makes tax and fee rates configurable per tier, and follows single responsibility principle</small>
+        </li>
+      
+        <li><strong>pattern-improvement — medium</strong>:
+          Extract feature definitions into a configuration object or enum to avoid duplication and improve maintainability
+          <br><small>Benefit: Centralizes feature definitions, prevents typos with enum, makes features type-safe, improves maintainability, and makes it easier to add or modify features</small>
+        </li>
+      
+        <li><strong>simplify — medium</strong>:
+          Use custom error types instead of generic Error and boolean returns for better error handling and type safety
+          <br><small>Benefit: Provides specific error types that can be caught and handled differently, removes ambiguous boolean return, improves error messages with context, and makes function signature clearer (void on success, throws on failure)</small>
+        </li>
+      
+        <li><strong>pattern-improvement — medium</strong>:
+          Create a SubscriptionRepository class to encapsulate database access and reduce duplication
+          <br><small>Benefit: Eliminates code duplication, separates data access from business logic, makes database queries testable with mocks, centralizes subscription data mapping, and follows repository pattern</small>
+        </li>
+      
+        <li><strong>modernize — low</strong>:
+          Define subscription tiers as a TypeScript enum or const assertion for better type safety and reusability
+          <br><small>Benefit: Provides a single source of truth for tier values, prevents typos, improves IDE autocomplete, makes it easier to add new tiers, and allows creating union types of specific tiers</small>
+        </li>
+      
+        <li><strong>simplify — medium</strong>:
+          Throw exceptions instead of returning boolean to properly propagate errors and enable better error handling
+          <br><small>Benefit: Eliminates boolean return checking, properly propagates error information to caller, enables specific error handling at higher levels, and improves error context</small>
+        </li>
+      
+        <li><strong>modernize — medium</strong>:
+          Add Luhn algorithm validation for card numbers to improve validation accuracy
+          <br><small>Benefit: Implements industry-standard card validation, reduces false positives, catches more input errors, provides better security, and aligns with payment industry best practices</small>
+        </li>
+      
+        <li><strong>simplify — low</strong>:
+          Extract SQL queries into constants to improve readability and maintainability
+          <br><small>Benefit: Centralizes SQL queries for easier maintenance, improves readability with named queries, makes it easier to spot SQL injection risks, and enables query reuse</small>
+        </li>
+      </ul>
+        </section>
+      
+
+  <footer>Generated at 2026-10-18T00:00:00Z · Duration: 420808 ms</footer>
+</body>
+</html>

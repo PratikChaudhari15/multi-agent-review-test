@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Review Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1000px;
+      margin: 0 auto; padding: 24px; background: #f8f9fa; color: #212529; }
+    .summary, .file-review { background: white; padding: 20px;
+      margin: 20px 0; border-radius: 8px; }
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; }
+    .metric { text-align: center; }
+    .metric-value { font-size: 1.8em; font-weight: bold; }
+    .rec-critical { border-left: 4px solid #e74c3c; }
+    .rec-high { border-left: 4px solid #f39c12; }
+    .rec-medium { border-left: 4px solid #3498db; }
+    .rec-low { border-left: 4px solid #27ae60; }
+    li { margin: 8px 0; padding: 8px; overflow-wrap: anywhere; }
+    small { color: #555; }
+  </style>
+</head>
+<body>
+  <h1>Code Review Report</h1>
+  <div class="summary">
+    <div class="metric"><div class="metric-value">78</div>Overall score / 100</div>
+    <div class="metric"><div class="metric-value">1</div>Files reviewed</div>
+    <div class="metric"><div class="metric-value">0</div>Critical issues</div>
+    <div class="metric"><div class="metric-value">8</div>High-priority tests</div>
+    <div class="metric"><div class="metric-value">7</div>Refactoring opportunities</div>
+  </div>
+
+  <h2>Top recommendations</h2>
+  <ul>
+      <li class="rec-critical">
+        <strong>[CRITICAL] Testing</strong>:
+        Add comprehensive test coverage for security-critical functions (sanitizeInput, isValidEmail) and the main createUser function. Currently, there is 0% test coverage despite this being security-sensitive code.
+        <br><small>Files: fixtures/clean-code.ts</small>
+      </li>
+    
+      <li class="rec-high">
+        <strong>[HIGH] Security</strong>:
+        Replace the overly permissive email validation regex with a well-tested library like &#39;validator.js&#39; or a more robust RFC-compliant regex pattern to prevent invalid emails from being accepted.
+        <br><small>Files: fixtures/clean-code.ts</small>
+      </li>
+    
+      <li class="rec-high">
+        <strong>[HIGH] Security</strong>:
+        Enhance XSS sanitization by either using a context-aware library like DOMPurify or ensuring the current implementation handles the &#39;&amp;&#39; character and all HTML entity encoding edge cases properly.
+        <br><small>Files: fixtures/clean-code.ts</small>
+      </li>
+    
+      <li class="rec-high">
+        <strong>[HIGH] Security</strong>:
+        Replace Math.random()-based ID generation with crypto.randomUUID() for cryptographically secure, guaranteed-unique user IDs that eliminate collision risks.
+        <br><small>Files: fixtures/clean-code.ts</small>
+      </li>
+    
+      <li class="rec-medium">
+        <strong>[MEDIUM] Code Quality</strong>:
+        Extract validation logic from createUser into a separate validator function to improve testability, maintainability, and separation of concerns following the Single Responsibility Principle.
+        <br><small>Files: fixtures/clean-code.ts</small>
+      </li>
+    </ul>
+
+  <h2>File reviews</h2>
+  
+        <section class="file-review">
+          <h2>fixtures/clean-code.ts</h2>
+          <p>Quality score: 78/100 |
+             Estimated coverage: 0% |
+             Has tests: No</p>
+          <p>This is well-structured TypeScript code with good intentions for security (input validation, sanitization, parameterized queries). However, it has several medium-severity issues: the email validation regex is too permissive, HTML sanitization is incomplete for comprehensive XSS prevention, and ID generation uses non-cryptographic randomness. The code demonstrates good practices like input validation, parameterized queries, and clear function documentation, but could benefit from using established security libraries, better separation of concerns, and more robust validation. No critical vulnerabilities detected, but the security measures implemented are somewhat naive and should be replaced with industry-standard solutions.</p>
+          <h3>Code quality issues (10)</h3>
+          <ul>
+        <li><strong>Line 33 — medium</strong>:
+          Email regex pattern is overly permissive and may allow invalid email addresses. The pattern /^[^\s@]+@[^\s@]+\.[^\s@]+$/ accepts malformed emails like &#39;a@b.c&#39; or emails with multiple @ symbols in the local part.
+          <br><small>Suggestion: Use a more robust email validation regex or better yet, use a well-tested library like &#39;validator.js&#39; or &#39;email-validator&#39;. Example: /^[a-zA-Z0-9.!#$%&amp;&#39;*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/</small>
+        </li>
+      
+        <li><strong>Line 40 — medium</strong>:
+          HTML entity encoding alone is insufficient for comprehensive XSS prevention. This approach only handles HTML context and doesn&#39;t protect against XSS in JavaScript contexts, URL contexts, or CSS contexts.
+          <br><small>Suggestion: Use a context-aware sanitization library like DOMPurify for HTML content, or consider using a framework&#39;s built-in escaping mechanisms. For user-generated content that will be displayed in HTML, validate and sanitize based on the specific output context.</small>
+        </li>
+      
+        <li><strong>Line 82 — low</strong>:
+          The ID generation function uses Math.random() which is not cryptographically secure and may produce predictable or colliding values in high-volume scenarios.
+          <br><small>Suggestion: Use a cryptographically secure method for ID generation such as &#39;crypto.randomUUID()&#39; (Node.js 14.17.0+) or a library like &#39;uuid&#39;. Example: import { randomUUID } from &#39;crypto&#39;; return randomUUID();</small>
+        </li>
+      
+        <li><strong>Line 82 — low</strong>:
+          The ID generation combines timestamp and random string, but this doesn&#39;t guarantee uniqueness. If multiple users are created in the same millisecond, there&#39;s a collision risk.
+          <br><small>Suggestion: Use UUID v4 for guaranteed uniqueness or implement a proper unique ID generation strategy with collision handling. Example: import { randomUUID } from &#39;crypto&#39;; return randomUUID();</small>
+        </li>
+      
+        <li><strong>Line 59 — low</strong>:
+          Email is converted to lowercase but not validated for length. Extremely long emails could cause issues or be used in DoS attacks.
+          <br><small>Suggestion: Add email length validation before processing. Example: if (input.email.length &gt; 254) { throw new Error(&#39;Email address too long&#39;); } // RFC 5321 max length is 254 characters</small>
+        </li>
+      
+        <li><strong>Line 64 — info</strong>:
+          The createUser function has multiple responsibilities: validation, sanitization, creation, and persistence. This violates the Single Responsibility Principle.
+          <br><small>Suggestion: Consider separating concerns into distinct functions or services: validateUserInput(), sanitizeUserData(), buildUserEntity(), and persistUser(). This improves testability and maintainability.</small>
+        </li>
+      
+        <li><strong>Line 91 — info</strong>:
+          The saveUser function has commented-out database code with no error handling or transaction management visible.
+          <br><small>Suggestion: Implement proper error handling with try-catch blocks, add transaction support for data integrity, and provide meaningful error messages. Consider using a proper ORM or database client with type safety.</small>
+        </li>
+      
+        <li><strong>Line 50 — info</strong>:
+          Input validation uses generic Error objects without custom error types, making it harder to handle different error cases in calling code.
+          <br><small>Suggestion: Create custom error classes (e.g., ValidationError, InvalidEmailError) to allow callers to handle specific error types differently. Example: class ValidationError extends Error { constructor(message: string) { super(message); this.name = &#39;ValidationError&#39;; } }</small>
+        </li>
+      
+        <li><strong>Line 17 — info</strong>:
+          The CreateUserInput interface doesn&#39;t enforce any constraints like email format or name length at the type level.
+          <br><small>Suggestion: Consider using branded types or refinement types with a validation library like Zod or io-ts to enforce runtime validation at type boundaries. Example: import { z } from &#39;zod&#39;; const CreateUserInputSchema = z.object({ email: z.string().email().max(254), name: z.string().min(1).max(100) });</small>
+        </li>
+      
+        <li><strong>Line 55 — info</strong>:
+          No maximum length validation for the name field, which could lead to database errors or display issues.
+          <br><small>Suggestion: Add validation for name length constraints. Example: if (input.name.length &gt; 100) { throw new Error(&#39;Name must be 100 characters or less&#39;); }</small>
+        </li>
+      </ul>
+          <h3>Test gaps (10)</h3>
+          <ul>
+        <li><strong>high — isValidEmail (line 26)</strong>:
+          Email validation is a critical security function. Without tests, there&#39;s no guarantee it correctly handles edge cases like multiple @ signs, missing domains, or special characters.
+          <br><small>Suggested test: Test valid emails (user@example.com), invalid formats (user@, @example.com, user@example), edge cases (user+tag@example.com, user@subdomain.example.com), and malicious inputs.</small>
+        </li>
+      
+        <li><strong>critical — sanitizeInput (line 35)</strong>:
+          XSS prevention is a critical security function. This sanitization function protects against cross-site scripting attacks, so it must be thoroughly tested to ensure it handles all dangerous characters.
+          <br><small>Suggested test: Test HTML special characters (&lt;, &gt;, &quot;, &#39;), script tags (&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;), event handlers (onload=&quot;alert(1)&quot;), and combined attack vectors to ensure proper sanitization.</small>
+        </li>
+      
+        <li><strong>critical — createUser (line 47)</strong>:
+          This is the main entry point for user creation. It orchestrates validation, sanitization, and persistence. Testing is essential to ensure all error paths work correctly and valid users are created properly.
+          <br><small>Suggested test: Test successful user creation with valid input, validation errors (missing email, missing name, invalid email format), proper sanitization of name field, email lowercasing, and database persistence calls.</small>
+        </li>
+      
+        <li><strong>medium — generateId (line 79)</strong>:
+          ID generation affects data integrity. Without tests, there&#39;s no verification of uniqueness, format consistency, or collision resistance.
+          <br><small>Suggested test: Test ID format consistency (matches expected pattern), uniqueness across multiple calls, timestamp component presence, and that IDs are always strings.</small>
+        </li>
+      
+        <li><strong>high — saveUser (line 86)</strong>:
+          Database persistence is critical for data integrity. The function uses parameterized queries (good), but the implementation is commented out. Tests would verify the query structure and parameter mapping.
+          <br><small>Suggested test: Test that the correct SQL query is constructed, parameters are passed in the correct order, Date objects are handled properly, and database errors are propagated correctly.</small>
+        </li>
+      
+        <li><strong>high — createUser - validation branches (lines 50-54)</strong>:
+          Multiple validation branches need testing to ensure each error condition is properly caught and reported with the correct error message.
+          <br><small>Suggested test: Test each validation branch: missing email only, missing name only, missing both, invalid email format, empty strings after trim (edge case).</small>
+        </li>
+      
+        <li><strong>high — isValidEmail - edge cases</strong>:
+          Email validation has many edge cases that are commonly overlooked, leading to either false positives (accepting invalid emails) or false negatives (rejecting valid emails).
+          <br><small>Suggested test: Test edge cases: emails with dots (user.name@example.com), plus addressing (user+tag@example.com), subdomain emails (user@mail.example.com), international characters, very long emails, emails with consecutive dots.</small>
+        </li>
+      
+        <li><strong>high — sanitizeInput - missing &amp; character</strong>:
+          The sanitization function doesn&#39;t escape the &amp; character, which could lead to XSS vulnerabilities when the ampersand is part of an HTML entity injection attack.
+          <br><small>Suggested test: Test that &amp; characters are properly handled, test existing HTML entities (&amp;lt;, &amp;quot;), and test double-encoding scenarios to prevent bypasses.</small>
+        </li>
+      
+        <li><strong>medium — createUser - concurrent calls</strong>:
+          The generateId function uses Date.now() which could produce collisions if createUser is called multiple times in the same millisecond.
+          <br><small>Suggested test: Test concurrent user creation (Promise.all with multiple createUser calls) to verify IDs remain unique under load.</small>
+        </li>
+      
+        <li><strong>low — createUser - email case handling</strong>:
+          The function converts emails to lowercase, but there&#39;s no verification that this works correctly with unicode or special characters.
+          <br><small>Suggested test: Test email case normalization with uppercase (USER@EXAMPLE.COM), mixed case (UsEr@ExAmPlE.cOm), and unicode characters if applicable.</small>
+        </li>
+      </ul>
+          <h3>Refactoring suggestions (7)</h3>
+          <ul>
+        <li><strong>modernize — low</strong>:
+          Replace HTML entity encoding with a well-established library or use a more comprehensive escaping function
+          <br><small>Benefit: Improves security by handling the &#39;&amp;&#39; character which should be escaped first. Using a map-based approach is more maintainable and performant with a single regex pass. Alternatively, using a well-tested library reduces security risks.</small>
+        </li>
+      
+        <li><strong>pattern-improvement — low</strong>:
+          Add readonly modifiers to interface properties to prevent accidental mutations
+          <br><small>Benefit: Prevents accidental property mutations, improving immutability and reducing potential bugs. Makes the intent clearer that these objects should not be modified after creation.</small>
+        </li>
+      
+        <li><strong>modernize — medium</strong>:
+          Replace custom ID generation with crypto.randomUUID() for better uniqueness guarantees
+          <br><small>Benefit: Uses a cryptographically secure UUID standard (RFC4122) instead of timestamp + random string. Provides better uniqueness guarantees, eliminates collision risks from concurrent calls, and follows industry standards.</small>
+        </li>
+      
+        <li><strong>pattern-improvement — medium</strong>:
+          Extract validation logic into a separate validator function or class using the Validation pattern
+          <br><small>Benefit: Separates validation concerns, makes validation logic reusable and testable independently. Allows returning multiple validation errors at once for better user experience. Follows Single Responsibility Principle.</small>
+        </li>
+      
+        <li><strong>pattern-improvement — low</strong>:
+          Add type safety for database parameters and query result
+          <br><small>Benefit: Adds explicit type safety to database parameters, making it clear what types are expected. The tuple type ensures parameter order and types match the query placeholders, catching errors at compile time.</small>
+        </li>
+      
+        <li><strong>simplify — low</strong>:
+          Consider using a more robust email validation library or add additional validation
+          <br><small>Benefit: The current regex is overly permissive. A more restrictive pattern or established library provides better validation, prevents edge cases like emails starting with special characters, and adds RFC-compliant length checks.</small>
+        </li>
+      
+        <li><strong>pattern-improvement — low</strong>:
+          Consider returning a Result type instead of throwing errors for better error handling
+          <br><small>Benefit: Makes error handling explicit in the type system, forcing callers to handle both success and failure cases. Improves type safety and makes the API more predictable without relying on try-catch blocks.</small>
+        </li>
+      </ul>
+        </section>
+      
+
+  <footer>Generated at 2026-10-18T00:00:00Z · Duration: 220248 ms</footer>
+</body>
+</html>

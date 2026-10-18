@@ -70,7 +70,10 @@ async function main(): Promise<void> {
   const filenamePrefix = `${owner}_${repo}_${prNumber}`;
 
   try {
-    const orchestrator = new CodeReviewOrchestrator();
+    const orchestrator = new CodeReviewOrchestrator({
+      timeoutMs: 600_000,
+      maxTurns: 30,
+    });
     const report = await orchestrator.reviewPullRequest(
       owner,
       repo,

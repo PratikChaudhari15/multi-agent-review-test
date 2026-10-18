@@ -28,18 +28,21 @@ export interface OrchestratorOptions {
   rateLimiter?: RateLimiter;
   timeoutMs?: number;
   maxRetries?: number;
+  maxTurns?: number;
 }
 
 export class CodeReviewOrchestrator {
   private readonly rateLimiter: RateLimiter;
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
+  private readonly maxTurns: number;
 
   constructor(options: OrchestratorOptions = {}) {
     this.rateLimiter =
       options.rateLimiter ?? new RateLimiter(DEFAULT_RATE_LIMITS);
     this.timeoutMs = options.timeoutMs ?? 300_000;
     this.maxRetries = options.maxRetries ?? 0;
+    this.maxTurns = options.maxTurns ?? 20;
   }
 
   async reviewPullRequest(
@@ -73,7 +76,7 @@ export class CodeReviewOrchestrator {
                   options: {
                     abortController,
                     model: process.env.ANTHROPIC_MODEL,
-                    maxTurns: 20,
+                    maxTurns: this.maxTurns,
                     maxBudgetUsd: 1.0,
                     agents: {
                       'code-quality-analyzer': codeQualityAnalyzer,

@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Review Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1000px;
+      margin: 0 auto; padding: 24px; background: #f8f9fa; color: #212529; }
+    .summary, .file-review { background: white; padding: 20px;
+      margin: 20px 0; border-radius: 8px; }
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; }
+    .metric { text-align: center; }
+    .metric-value { font-size: 1.8em; font-weight: bold; }
+    .rec-critical { border-left: 4px solid #e74c3c; }
+    .rec-high { border-left: 4px solid #f39c12; }
+    .rec-medium { border-left: 4px solid #3498db; }
+    .rec-low { border-left: 4px solid #27ae60; }
+    li { margin: 8px 0; padding: 8px; overflow-wrap: anywhere; }
+    small { color: #555; }
+  </style>
+</head>
+<body>
+  <h1>Code Review Report</h1>
+  <div class="summary">
+    <div class="metric"><div class="metric-value">35</div>Overall score / 100</div>
+    <div class="metric"><div class="metric-value">1</div>Files reviewed</div>
+    <div class="metric"><div class="metric-value">3</div>Critical issues</div>
+    <div class="metric"><div class="metric-value">9</div>High-priority tests</div>
+    <div class="metric"><div class="metric-value">12</div>Refactoring opportunities</div>
+  </div>
+
+  <h2>Top recommendations</h2>
+  <ul>
+      <li class="rec-critical">
+        <strong>[CRITICAL] Security</strong>:
+        Fix SQL injection vulnerabilities in searchTodos, searchTodosByStatus, and getTodosByUser functions by replacing string concatenation and template literals with parameterized queries. These vulnerabilities allow arbitrary SQL execution and represent OWASP A03:2021 Injection risks.
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    
+      <li class="rec-critical">
+        <strong>[CRITICAL] Testing</strong>:
+        Create comprehensive test suite with 0% coverage currently. Prioritize security tests for SQL injection vulnerabilities, XSS prevention, input validation boundary conditions, and error handling scenarios. All 9 exported functions are completely untested.
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    
+      <li class="rec-high">
+        <strong>[HIGH] Security</strong>:
+        Add runtime validation for database query results before casting to TypeScript types. Current unsafe type assertions could hide schema mismatches and cause runtime errors. Implement a mapRowToTodo function with proper validation.
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    
+      <li class="rec-high">
+        <strong>[HIGH] Architecture</strong>:
+        Introduce Repository pattern to separate data access logic from business logic. This improves testability, enables easier database mocking in tests, centralizes SQL queries, and follows SOLID principles.
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    
+      <li class="rec-high">
+        <strong>[HIGH] Security</strong>:
+        Replace manual XSS sanitization with well-tested libraries like validator.js or DOMPurify. The current implementation is incomplete and misses attack vectors like JavaScript events, CSS injection, and Unicode encoding attacks.
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    </ul>
+
+  <h2>File reviews</h2>
+  
+        <section class="file-review">
+          <h2>src/todo.ts</h2>
+          <p>Quality score: 35/100 |
+             Estimated coverage: 0% |
+             Has tests: No</p>
+          <p>The code contains 3 CRITICAL SQL injection vulnerabilities (searchTodos, searchTodosByStatus, getTodosByUser) that allow arbitrary SQL execution. Multiple HIGH severity issues include unsafe database result casting without validation and type mismatches. The code correctly uses parameterized queries in some functions but inconsistently applies this security practice. Additional concerns include insecure ID generation using Math.random(), incomplete XSS sanitization, missing error handling for non-existent records, and lack of pagination. Immediate remediation of SQL injection vulnerabilities is required before production use.</p>
+          <h3>Code quality issues (18)</h3>
+          <ul>
+        <li><strong>Line 122 — critical</strong>:
+          SQL Injection vulnerability in searchTodos function - user input is directly interpolated into SQL query using template literals
+          <br><small>Suggestion: Use parameterized queries: `const query = &#39;SELECT * FROM todos WHERE title LIKE $1 OR description LIKE $2&#39;; const rows = await db.query(query, [`%${keyword}%`, `%${keyword}%`]);`</small>
+        </li>
+      
+        <li><strong>Line 132 — critical</strong>:
+          SQL Injection vulnerability in searchTodosByStatus function - user input is concatenated directly into SQL query without validation or parameterization
+          <br><small>Suggestion: Use parameterized queries with proper type validation: `const query = &#39;SELECT * FROM todos WHERE completed = $1&#39;; const isCompleted = completed === &#39;true&#39;; await db.query(query, [isCompleted]);`</small>
+        </li>
+      
+        <li><strong>Line 142 — critical</strong>:
+          SQL Injection vulnerability in getTodosByUser function - userId is interpolated directly into SQL query without sanitization
+          <br><small>Suggestion: Use parameterized queries: `const query = &#39;SELECT t.* FROM todos t JOIN user_todos ut ON t.id = ut.todo_id WHERE ut.user_id = $1&#39;; const rows = await db.query(query, [userId]);`</small>
+        </li>
+      
+        <li><strong>Line 43 — medium</strong>:
+          XSS sanitization is incomplete and insufficient - only handles HTML entities but misses other attack vectors like JavaScript events, CSS injection, and Unicode encoding attacks
+          <br><small>Suggestion: Use a well-tested sanitization library like DOMPurify or validator.js instead of manual regex replacement. If storing in database, consider storing raw data and sanitizing only on output based on context (HTML, JSON, etc.)</small>
+        </li>
+      
+        <li><strong>Line 81 — high</strong>:
+          Database query result type is unsafely cast to Todo[] without validation - could cause runtime errors if database schema differs from expected structure
+          <br><small>Suggestion: Implement runtime validation: `const todos = rows.map(row =&gt; ({ id: String(row.id), title: String(row.title), description: String(row.description), completed: Boolean(row.completed), createdAt: new Date(row.created_at) }));` or use a validation library like zod or io-ts</small>
+        </li>
+      
+        <li><strong>Line 93 — high</strong>:
+          Database result unsafely cast to Todo without runtime validation - no guarantee the row matches the Todo interface structure
+          <br><small>Suggestion: Add runtime validation before casting: validate that all required fields exist and have correct types before returning as Todo</small>
+        </li>
+      
+        <li><strong>Line 130 — high</strong>:
+          searchTodosByStatus accepts string parameter but SQL expects boolean - type mismatch will cause incorrect queries or errors
+          <br><small>Suggestion: Change parameter type to boolean: `export async function searchTodosByStatus(completed: boolean): Promise&lt;Todo[]&gt;` and use parameterized query with the boolean value</small>
+        </li>
+      
+        <li><strong>Line 102 — medium</strong>:
+          updateTodoStatus does not verify if the todo exists before updating - silent failure if ID doesn&#39;t exist
+          <br><small>Suggestion: Check affected rows or query for the todo first: `const result = await db.query(query, [completed, id]); if (result.rowCount === 0) { throw new Error(&#39;Todo not found&#39;); }`</small>
+        </li>
+      
+        <li><strong>Line 109 — medium</strong>:
+          deleteTodo does not verify if the todo exists before deleting - silent failure if ID doesn&#39;t exist
+          <br><small>Suggestion: Check affected rows: `const result = await db.query(query, [id]); if (result.rowCount === 0) { throw new Error(&#39;Todo not found&#39;); }`</small>
+        </li>
+      
+        <li><strong>Line 149 — medium</strong>:
+          generateId uses Math.random() which is cryptographically insecure - predictable IDs could enable enumeration attacks or ID guessing
+          <br><small>Suggestion: Use crypto.randomUUID() for secure random IDs: `import { randomUUID } from &#39;crypto&#39;; function generateId(): string { return randomUUID(); }`</small>
+        </li>
+      
+        <li><strong>Line 149 — medium</strong>:
+          generateId using Date.now() combined with Math.random() could produce duplicate IDs if called multiple times in the same millisecond with unlucky random values
+          <br><small>Suggestion: Use crypto.randomUUID() which guarantees uniqueness: `import { randomUUID } from &#39;crypto&#39;; function generateId(): string { return randomUUID(); }`</small>
+        </li>
+      
+        <li><strong>Line 8 — low</strong>:
+          Database module import &#39;./database&#39; is not validated - no type information about db.query signature
+          <br><small>Suggestion: Create a proper database interface: `interface Database { query&lt;T = any&gt;(sql: string, params?: any[]): Promise&lt;T[]&gt;; }` and type the import or create a typed database client</small>
+        </li>
+      
+        <li><strong>Line 56 — low</strong>:
+          Error thrown with generic message doesn&#39;t provide enough context for debugging or user feedback
+          <br><small>Suggestion: Throw more specific errors with validation details: `throw new Error(&#39;Invalid todo input: title is required and must be 1-200 characters, description must be under 1000 characters&#39;);`</small>
+        </li>
+      
+        <li><strong>Line 59 — low</strong>:
+          Sanitizing data before storing in database - this is context-inappropriate as SQL injection should be prevented via parameterized queries, not sanitization
+          <br><small>Suggestion: Remove HTML sanitization from database storage (lines 59-60). Store raw user input and apply context-appropriate escaping only when rendering (e.g., HTML escape for web display). The parameterized queries already prevent SQL injection.</small>
+        </li>
+      
+        <li><strong>Line 32 — low</strong>:
+          Validation allows empty description but doesn&#39;t explicitly handle null vs empty string - inconsistent optional handling
+          <br><small>Suggestion: Be explicit about optional values: `if (input.description !== undefined &amp;&amp; input.description !== null &amp;&amp; input.description.length &gt; 1000) { return false; }`</small>
+        </li>
+      
+        <li><strong>Line 10 — info</strong>:
+          Todo interface uses string for id - consider using a branded type to prevent mixing regular strings with IDs
+          <br><small>Suggestion: Use a branded type for type safety: `export type TodoId = string &amp; { readonly __brand: &#39;TodoId&#39; }; export interface Todo { id: TodoId; ... }`</small>
+        </li>
+      
+        <li><strong>Line 11 — info</strong>:
+          Todo interface fields are all mutable - consider using readonly for immutability
+          <br><small>Suggestion: Make interface readonly: `export interface Todo { readonly id: string; readonly title: string; readonly description: string; readonly completed: boolean; readonly createdAt: Date; }`</small>
+        </li>
+      
+        <li><strong>Line 75 — info</strong>:
+          getAllTodos retrieves all todos without pagination - could cause performance issues with large datasets
+          <br><small>Suggestion: Add pagination parameters: `export async function getAllTodos(limit: number = 50, offset: number = 0): Promise&lt;Todo[]&gt; { const query = &#39;SELECT * FROM todos ORDER BY created_at DESC LIMIT $1 OFFSET $2&#39;; ... }`</small>
+        </li>
+      </ul>
+          <h3>Test gaps (27)</h3>
+          <ul>
+        <li><strong>high — validateTodoInput (lines 24-34)</strong>:
+          Core validation logic that prevents invalid data. Missing tests for boundary conditions and edge cases could allow invalid todos to be created.
+          <br><small>Suggested test: Test empty title, whitespace-only title, title exactly at 200 chars, title at 201 chars, description at 1000 chars, description at 1001 chars, missing description (undefined vs empty string)</small>
+        </li>
+      
+        <li><strong>high — validateTodoInput - title.trim().length === 0</strong>:
+          Whitespace-only titles should be rejected. Need to verify trimming behavior with various whitespace characters (spaces, tabs, newlines).
+          <br><small>Suggested test: Test with &#39;   &#39;, &#39;\t&#39;, &#39;\n&#39;, mixed whitespace to ensure all are rejected</small>
+        </li>
+      
+        <li><strong>medium — validateTodoInput - title.length &gt; 200</strong>:
+          Boundary validation for title length. Need to test exact boundaries to prevent off-by-one errors.
+          <br><small>Suggested test: Test with titles of length 199, 200, and 201 characters</small>
+        </li>
+      
+        <li><strong>medium — validateTodoInput - description.length &gt; 1000</strong>:
+          Boundary validation for description length. Need to test exact boundaries.
+          <br><small>Suggested test: Test with descriptions of length 999, 1000, and 1001 characters</small>
+        </li>
+      
+        <li><strong>critical — sanitizeInput (lines 39-46)</strong>:
+          XSS prevention function. Inadequate testing could leave XSS vulnerabilities. Must verify all HTML/JS injection vectors are blocked.
+          <br><small>Suggested test: Test with &#39;&lt;script&gt;alert(1)&lt;/script&gt;&#39;, &#39;&lt;img src=x onerror=alert(1)&gt;&#39;, &#39;&quot;onclick=&quot;alert(1)&quot;&#39;, various HTML entities, and Unicode edge cases</small>
+        </li>
+      
+        <li><strong>critical — sanitizeInput - special characters</strong>:
+          Must verify that all dangerous HTML characters are properly escaped to prevent XSS attacks.
+          <br><small>Suggested test: Test each special character individually: &#39;&lt;&#39;, &#39;&gt;&#39;, &#39;&quot;&#39;, &quot;&#39;&quot;, and combinations like &#39;&lt;&gt;&#39; and &#39;&quot;&quot;&#39;</small>
+        </li>
+      
+        <li><strong>high — createTodo (lines 51-72)</strong>:
+          Main todo creation function. Needs comprehensive testing of the entire flow including validation, sanitization, ID generation, and database insertion.
+          <br><small>Suggested test: Test successful creation with valid input, rejection with invalid input, proper sanitization of title/description, database query parameters, and error handling for database failures</small>
+        </li>
+      
+        <li><strong>medium — createTodo - empty/undefined description</strong>:
+          The function uses &#39;input.description || &quot;&quot;&#39; which needs testing with undefined, null, and empty string values.
+          <br><small>Suggested test: Test createTodo with {title: &#39;Test&#39;, description: undefined}, {title: &#39;Test&#39;, description: &#39;&#39;}, and {title: &#39;Test&#39;, description: null}</small>
+        </li>
+      
+        <li><strong>high — createTodo - validation failure path</strong>:
+          Error handling for invalid input must be tested to ensure proper error messages and no database side effects.
+          <br><small>Suggested test: Test that calling createTodo with invalid input throws &#39;Invalid todo input&#39; error and does not call db.query</small>
+        </li>
+      
+        <li><strong>medium — getAllTodos (lines 77-81)</strong>:
+          Retrieval function needs testing for correct query construction and result mapping.
+          <br><small>Suggested test: Test that it executes correct SQL query, handles empty results, handles multiple results, and properly maps database rows to Todo objects</small>
+        </li>
+      
+        <li><strong>medium — getAllTodos - empty database</strong>:
+          Must handle the case where no todos exist without errors.
+          <br><small>Suggested test: Mock db.query to return empty array and verify getAllTodos returns empty array</small>
+        </li>
+      
+        <li><strong>high — getTodoById (lines 86-95)</strong>:
+          ID-based lookup with null handling. Critical for ensuring proper parameterized queries and handling missing records.
+          <br><small>Suggested test: Test with existing ID returns todo, non-existent ID returns null, uses parameterized query with correct ID parameter, handles malicious ID input safely</small>
+        </li>
+      
+        <li><strong>high — getTodoById - null path (rows.length === 0)</strong>:
+          Must correctly return null when todo doesn&#39;t exist rather than throwing errors or returning undefined.
+          <br><small>Suggested test: Mock db.query to return empty array and verify function returns null (not undefined or error)</small>
+        </li>
+      
+        <li><strong>medium — getTodoById - malformed ID</strong>:
+          Should safely handle SQL injection attempts and malformed IDs through parameterized queries.
+          <br><small>Suggested test: Test with IDs like &quot;&#39;; DROP TABLE todos; --&quot;, empty string, special characters to verify parameterized query prevents injection</small>
+        </li>
+      
+        <li><strong>medium — updateTodoStatus (lines 100-103)</strong>:
+          Status update function needs testing for correct parameterization and handling of both true/false values.
+          <br><small>Suggested test: Test with completed=true and completed=false, verify correct parameterized query, test with non-existent ID (no error thrown)</small>
+        </li>
+      
+        <li><strong>low — updateTodoStatus - non-existent ID</strong>:
+          Should handle updates to non-existent todos gracefully (UPDATE with no matching rows).
+          <br><small>Suggested test: Call updateTodoStatus with non-existent ID and verify it completes without error</small>
+        </li>
+      
+        <li><strong>medium — deleteTodo (lines 108-111)</strong>:
+          Deletion function needs testing for correct parameterization and idempotency.
+          <br><small>Suggested test: Test successful deletion with valid ID, deletion with non-existent ID (no error), verify parameterized query used</small>
+        </li>
+      
+        <li><strong>critical — searchTodos (lines 117-125)</strong>:
+          CRITICAL SQL INJECTION VULNERABILITY. Direct string interpolation allows arbitrary SQL execution. This function is exploitable and needs immediate security testing and fixing.
+          <br><small>Suggested test: Test SQL injection with keyword=&quot;&#39; OR &#39;1&#39;=&#39;1&quot;, keyword=&quot;&#39;; DROP TABLE todos; --&quot;, verify vulnerability exists, then fix and retest</small>
+        </li>
+      
+        <li><strong>critical — searchTodos - SQL injection attack</strong>:
+          Attacker can inject arbitrary SQL through the keyword parameter, potentially extracting all data, modifying data, or dropping tables.
+          <br><small>Suggested test: Test with keyword=&quot;&#39; OR 1=1 --&quot; to demonstrate vulnerability, then fix using parameterized queries and retest</small>
+        </li>
+      
+        <li><strong>critical — searchTodosByStatus (lines 131-136)</strong>:
+          CRITICAL SQL INJECTION VULNERABILITY. User input directly concatenated into SQL query without validation or parameterization. Allows arbitrary SQL execution.
+          <br><small>Suggested test: Test with completed=&quot;true; DROP TABLE todos; --&quot;, verify vulnerability, fix using parameterized queries with proper boolean handling</small>
+        </li>
+      
+        <li><strong>critical — searchTodosByStatus - type confusion</strong>:
+          Parameter is typed as string but should be boolean. Allows injection of arbitrary SQL instead of just &#39;true&#39;/&#39;false&#39;.
+          <br><small>Suggested test: Test with completed=&quot;1=1&quot; or completed=&quot;true) OR (1=1&quot; to demonstrate SQL injection, then fix parameter type and use proper validation</small>
+        </li>
+      
+        <li><strong>critical — getTodosByUser (lines 142-147)</strong>:
+          CRITICAL SQL INJECTION VULNERABILITY. Template literal with unsanitized userId allows arbitrary SQL injection in JOIN query.
+          <br><small>Suggested test: Test with userId=&quot;&#39; OR &#39;1&#39;=&#39;1&quot;, userId=&quot;1&#39; UNION SELECT * FROM users --&quot; to demonstrate vulnerability, then fix with parameterized query</small>
+        </li>
+      
+        <li><strong>critical — getTodosByUser - JOIN injection</strong>:
+          SQL injection in JOIN context can expose data from user_todos and users tables, not just todos.
+          <br><small>Suggested test: Test with userId=&quot;1&#39; UNION SELECT password FROM users WHERE &#39;1&#39;=&#39;1&quot; to show cross-table data exposure</small>
+        </li>
+      
+        <li><strong>medium — generateId (lines 153-155)</strong>:
+          ID generation function needs testing for uniqueness, format, and collision resistance. Poor ID generation could cause data integrity issues.
+          <br><small>Suggested test: Test that generated IDs follow expected format &#39;todo_&lt;timestamp&gt;_&lt;random&gt;&#39;, test uniqueness by generating multiple IDs rapidly, verify length and character set</small>
+        </li>
+      
+        <li><strong>medium — generateId - collision potential</strong>:
+          Using Date.now() and short random string could cause collisions if multiple todos created in same millisecond.
+          <br><small>Suggested test: Create multiple todos in tight loop and verify all IDs are unique. Consider using UUID instead for better collision resistance.</small>
+        </li>
+      
+        <li><strong>high — Database errors and async failures</strong>:
+          All async database functions lack explicit error handling. Need to test database connection failures, query errors, and timeout scenarios.
+          <br><small>Suggested test: Mock db.query to throw errors and verify functions properly propagate errors to callers. Test network timeouts, connection failures, constraint violations.</small>
+        </li>
+      
+        <li><strong>medium — Type safety - database row mapping</strong>:
+          Direct type assertions (as Todo, as Todo[]) without runtime validation could hide type mismatches from database.
+          <br><small>Suggested test: Test with database returning unexpected schema (missing fields, wrong types) and verify runtime behavior. Consider adding runtime validation.</small>
+        </li>
+      </ul>
+          <h3>Refactoring suggestions (12)</h3>
+          <ul>
+        <li><strong>pattern-improvement — high</strong>:
+          Introduce Repository pattern to encapsulate all database operations. This improves separation of concerns, testability, and makes it easier to swap database implementations.
+          <br><small>Benefit: Separates data access from business logic, improves testability by allowing repository mocking, centralizes SQL queries, makes it easier to add caching or switch databases, and follows SOLID principles (Single Responsibility).</small>
+        </li>
+      
+        <li><strong>pattern-improvement — medium</strong>:
+          Replace boolean validation return with Result/Either pattern or throw descriptive errors. The current approach loses information about what validation failed.
+          <br><small>Benefit: Provides clear error messages to users about what failed validation, improves debugging, enables better error handling in API responses, and follows the fail-fast principle with actionable feedback.</small>
+        </li>
+      
+        <li><strong>modernize — high</strong>:
+          Replace manual XSS sanitization with a well-tested library like DOMPurify or validator.js. Manual sanitization is error-prone and incomplete.
+          <br><small>Benefit: Uses battle-tested security libraries that handle edge cases, provides more comprehensive XSS protection, reduces maintenance burden, and follows security best practice of not rolling your own security functions.</small>
+        </li>
+      
+        <li><strong>simplify — high</strong>:
+          Fix SQL injection vulnerability by using parameterized queries. This is a critical security issue that allows arbitrary SQL execution.
+          <br><small>Benefit: Eliminates SQL injection vulnerability (OWASP A03:2021), prevents attackers from executing arbitrary SQL commands, protects data integrity and confidentiality, and follows secure coding best practices for database queries.</small>
+        </li>
+      
+        <li><strong>simplify — high</strong>:
+          Fix SQL injection vulnerability and add type safety by accepting boolean parameter instead of string, then use parameterized query.
+          <br><small>Benefit: Eliminates SQL injection vulnerability (OWASP A03:2021), adds type safety by using boolean instead of string, prevents malicious SQL injection attacks, and ensures the function accepts only valid boolean values.</small>
+        </li>
+      
+        <li><strong>simplify — high</strong>:
+          Fix SQL injection vulnerability by using parameterized queries for the userId parameter.
+          <br><small>Benefit: Eliminates SQL injection vulnerability (OWASP A03:2021), protects against unauthorized data access, prevents attackers from manipulating query logic, and maintains consistency with other secure functions in the file.</small>
+        </li>
+      
+        <li><strong>extract-function — medium</strong>:
+          Extract todo object construction logic into a separate factory function to improve testability and reusability.
+          <br><small>Benefit: Separates object construction from database operations, makes todo creation logic testable without database, enables reuse of construction logic, and improves readability by reducing function complexity.</small>
+        </li>
+      
+        <li><strong>modernize — low</strong>:
+          Replace custom ID generation with UUID library for better uniqueness guarantees and collision resistance.
+          <br><small>Benefit: Provides cryptographically strong unique IDs with collision resistance, uses industry-standard UUID format, removes reliance on timestamp and Math.random which can have predictability issues, and improves security for ID generation.</small>
+        </li>
+      
+        <li><strong>pattern-improvement — low</strong>:
+          Add readonly modifiers to Todo interface properties that should not be mutated after creation to improve type safety.
+          <br><small>Benefit: Prevents accidental mutation of immutable fields like id and createdAt, provides better type safety, makes intent clear about which fields can change, and helps catch bugs at compile time.</small>
+        </li>
+      
+        <li><strong>simplify — medium</strong>:
+          Create a typed database result mapper to avoid unsafe &#39;as&#39; type assertions and add runtime validation.
+          <br><small>Benefit: Adds runtime validation of database results, prevents type errors from invalid data, makes field mapping explicit, handles database column name differences (created_at vs createdAt), and improves error detection.</small>
+        </li>
+      
+        <li><strong>pattern-improvement — medium</strong>:
+          Implement custom error classes for different error scenarios to enable better error handling and logging.
+          <br><small>Benefit: Enables specific error handling in calling code, improves error logging and monitoring, provides structured error information, allows different error responses in API layer, and follows error handling best practices.</small>
+        </li>
+      
+        <li><strong>extract-function — low</strong>:
+          Extract magic numbers for validation limits into named constants for better maintainability and clarity.
+          <br><small>Benefit: Makes validation rules discoverable and reusable, enables configuration without code changes, improves code readability, and centralizes business rules for easier maintenance.</small>
+        </li>
+      </ul>
+        </section>
+      
+
+  <footer>Generated at 2026-10-18T00:00:00Z · Duration: 333910 ms</footer>
+</body>
+</html>
