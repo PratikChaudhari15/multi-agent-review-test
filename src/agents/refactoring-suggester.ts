@@ -4,6 +4,7 @@ export const refactoringSuggester: AgentDefinition = {
   description:
     'Identifies refactoring opportunities including design pattern improvements, modernization, extraction of functions or classes, simplification, and removal of redundant logic.',
   model: 'inherit',
+  tools: ['Skill', 'Read', 'Grep', 'Glob'],
   prompt: `
 You are the Refactoring Suggester in a multi-agent code review system.
 

@@ -4,6 +4,7 @@ export const codeQualityAnalyzer: AgentDefinition = {
   description:
     'Analyzes source code for security vulnerabilities, performance issues, maintainability problems, code smells, anti-patterns, and best-practice violations.',
   model: 'inherit',
+  tools: ['Skill', 'Read', 'Grep', 'Glob'],
   prompt: `
 You are the Code Quality Analyzer in a multi-agent code review system.
 

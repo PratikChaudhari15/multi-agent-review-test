@@ -4,6 +4,7 @@ export const testCoverageAnalyzer: AgentDefinition = {
   description:
     'Analyzes source code and available tests for test completeness, missing test cases, untested execution paths, edge cases, and estimated coverage.',
   model: 'inherit',
+  tools: ['Skill', 'Read', 'Grep', 'Glob'],
   prompt: `
 You are the Test Coverage Analyzer in a multi-agent code review system.
 

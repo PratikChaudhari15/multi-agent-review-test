@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Review Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1000px;
+      margin: 0 auto; padding: 24px; background: #f8f9fa; color: #212529; }
+    .summary, .file-review { background: white; padding: 20px;
+      margin: 20px 0; border-radius: 8px; }
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; }
+    .metric { text-align: center; }
+    .metric-value { font-size: 1.8em; font-weight: bold; }
+    .rec-critical { border-left: 4px solid #e74c3c; }
+    .rec-high { border-left: 4px solid #f39c12; }
+    .rec-medium { border-left: 4px solid #3498db; }
+    .rec-low { border-left: 4px solid #27ae60; }
+    li { margin: 8px 0; padding: 8px; overflow-wrap: anywhere; }
+    small { color: #555; }
+  </style>
+</head>
+<body>
+  <h1>Code Review Report</h1>
+  <div class="summary">
+    <div class="metric"><div class="metric-value">62</div>Overall score / 100</div>
+    <div class="metric"><div class="metric-value">1</div>Files reviewed</div>
+    <div class="metric"><div class="metric-value">2</div>Critical issues</div>
+    <div class="metric"><div class="metric-value">3</div>High-priority tests</div>
+    <div class="metric"><div class="metric-value">4</div>Refactoring opportunities</div>
+  </div>
+
+  <h2>Top recommendations</h2>
+  <ul>
+      <li class="rec-critical">
+        <strong>[CRITICAL] Bug Risk &amp; Testing</strong>:
+        The divide() function lacks division-by-zero validation, which will return Infinity or NaN. This critical bug has no test coverage. Add error handling and comprehensive tests for division operations including edge cases.
+        <br><small>Files: example.js</small>
+      </li>
+    
+      <li class="rec-high">
+        <strong>[HIGH] Test Coverage</strong>:
+        Zero test coverage detected (0%). Create unit tests for both calculateTotal() and divide() functions covering normal cases, edge cases (zero, negative, decimal values), and error conditions. The untested divide() function poses a significant risk.
+        <br><small>Files: example.js</small>
+      </li>
+    
+      <li class="rec-high">
+        <strong>[HIGH] Code Modernization</strong>:
+        Replace outdated &#39;var&#39; keyword with &#39;const&#39; or &#39;let&#39; for proper block scoping. Convert function declarations to modern arrow function syntax to align with ES6+ standards and prevent scoping issues.
+        <br><small>Files: example.js</small>
+      </li>
+    
+      <li class="rec-medium">
+        <strong>[MEDIUM] Input Validation</strong>:
+        Add input validation to ensure parameters are numbers before performing arithmetic operations. This prevents unexpected behavior from type coercion and invalid inputs.
+        <br><small>Files: example.js</small>
+      </li>
+    
+      <li class="rec-medium">
+        <strong>[MEDIUM] Dead Code Removal</strong>:
+        Remove the unused divide() function or provide justification for its existence. If it&#39;s part of an API, add documentation. Dead code reduces maintainability and creates confusion.
+        <br><small>Files: example.js</small>
+      </li>
+    </ul>
+
+  <h2>File reviews</h2>
+  
+        <section class="file-review">
+          <h2>example.js</h2>
+          <p>Quality score: 62/100 |
+             Estimated coverage: 0% |
+             Has tests: No</p>
+          <p>The code has several quality issues requiring attention. Primary concerns are the missing division-by-zero check (high severity bug-risk), use of outdated &#39;var&#39; keyword, lack of input validation, and unnecessary debug logging throughout. The unused &#39;divide&#39; function adds to code clutter. Modernizing to ES6+ syntax (const/let), adding input validation, implementing proper error handling, and removing debug statements would significantly improve code quality and robustness.</p>
+          <h3>Code quality issues (6)</h3>
+          <ul>
+        <li><strong>Line 2 — medium</strong>:
+          Use of &#39;var&#39; instead of &#39;const&#39; or &#39;let&#39;
+          <br><small>Suggestion: Replace &#39;var total&#39; with &#39;const total&#39; since the variable is not reassigned. The &#39;var&#39; keyword has function-scoped behavior which can lead to subtle bugs. Modern ES6+ standards prefer &#39;const&#39; by default, then &#39;let&#39; only when reassignment is necessary.</small>
+        </li>
+      
+        <li><strong>Line 3 — low</strong>:
+          Unnecessary console.log statement in function logic
+          <br><small>Suggestion: Remove or replace debug logging with a proper logging system. Leaving debug statements in production code can impact performance and pollute logs. Use a logging library or conditional logging only in development.</small>
+        </li>
+      
+        <li><strong>Line 7 — high</strong>:
+          Division by zero not handled
+          <br><small>Suggestion: Add validation to check if &#39;b&#39; is zero before performing division. Add a guard clause: &#39;if (b === 0) throw new Error(&quot;Cannot divide by zero&quot;);&#39; to prevent undefined behavior and NaN results.</small>
+        </li>
+      
+        <li><strong>Line 7 — medium</strong>:
+          No input validation or error handling
+          <br><small>Suggestion: Add input validation to ensure &#39;a&#39; and &#39;b&#39; are numbers. Add try-catch or parameter validation: validate that typeof a === &#39;number&#39; &amp;&amp; typeof b === &#39;number&#39; before performing operations.</small>
+        </li>
+      
+        <li><strong>Line 11 — low</strong>:
+          Unused function &#39;divide&#39; is defined but never called
+          <br><small>Suggestion: Remove the unused &#39;divide&#39; function or implement its usage. Dead code reduces maintainability and can cause confusion for future developers. If keeping for API purposes, document why it exists.</small>
+        </li>
+      
+        <li><strong>Line 13 — low</strong>:
+          Unnecessary console.log for result output
+          <br><small>Suggestion: Remove debug logging or move to a proper logging system. Top-level console.log statements should not exist in production code without clear purpose.</small>
+        </li>
+      </ul>
+          <h3>Test gaps (7)</h3>
+          <ul>
+        <li><strong>high — calculateTotal()</strong>:
+          Core calculation function with no test coverage. Currently untested for correct multiplication behavior, parameter handling, and console output.
+          <br><small>Suggested test: Test with various inputs: calculateTotal(100, 2) should return 200; calculateTotal(0, 5) should return 0; calculateTotal(-10, 3) should return -30; calculateTotal(1.5, 2.5) should return 3.75</small>
+        </li>
+      
+        <li><strong>medium — calculateTotal() - division by zero scenario</strong>:
+          While not explicitly handled, the function doesn&#39;t validate input types. Multiplication with undefined or null values should be tested.
+          <br><small>Suggested test: Test edge cases: calculateTotal(undefined, 2), calculateTotal(null, 2), calculateTotal(&#39;100&#39;, 2) to verify behavior with invalid inputs</small>
+        </li>
+      
+        <li><strong>medium — calculateTotal() - zero and negative values</strong>:
+          Boundary conditions with zero and negative numbers are not tested. These are common edge cases in calculation functions.
+          <br><small>Suggested test: Test boundary conditions: calculateTotal(0, 0), calculateTotal(-100, -2), calculateTotal(100, 0), calculateTotal(Number.MAX_SAFE_INTEGER, 2)</small>
+        </li>
+      
+        <li><strong>critical — divide()</strong>:
+          Division function has no test coverage and critically lacks handling for division by zero, which would return Infinity or NaN. This is a major bug risk.
+          <br><small>Suggested test: Test divide(10, 2) should return 5; Test divide(1, 3) returns approximately 0.333; Test divide(10, 0) should handle division by zero gracefully (return Infinity or throw error)</small>
+        </li>
+      
+        <li><strong>critical — divide() - division by zero</strong>:
+          divide(a, 0) will return Infinity without proper error handling. This is a critical edge case that should be caught and tested.
+          <br><small>Suggested test: Verify divide(5, 0) behavior: either throw an error or return specific sentinel value; test negative division: divide(-10, 2) should return -5</small>
+        </li>
+      
+        <li><strong>medium — divide() - negative and decimal handling</strong>:
+          Division with negative numbers and decimals is not tested.
+          <br><small>Suggested test: Test divide(10, -2) should return -5; divide(-10, -2) should return 5; divide(10, 3) should return ~3.333; divide(0, 5) should return 0</small>
+        </li>
+      
+        <li><strong>low — Main module scope - console.log statements</strong>:
+          The module-level code executes calculateTotal(100, 2) and logs output. This execution path is not tested.
+          <br><small>Suggested test: Create integration test that imports this module and verifies the expected console output or that the calculateTotal function produces the correct side effects</small>
+        </li>
+      </ul>
+          <h3>Refactoring suggestions (4)</h3>
+          <ul>
+        <li><strong>modernize — low</strong>:
+          Replace &#39;var&#39; with &#39;const&#39; for better scoping and use arrow functions where appropriate. The &#39;var&#39; keyword has function-level scope which can lead to unexpected behavior. Modern JavaScript uses &#39;const&#39; for constants and &#39;let&#39; for variables.
+          <br><small>Benefit: Improved variable scoping, cleaner syntax, prevents accidental global variable creation, aligns with ES6+ standards</small>
+        </li>
+      
+        <li><strong>simplify — low</strong>:
+          Remove intermediate variable assignment. The &#39;total&#39; variable is only used once to return the value. Direct return of the calculation simplifies the function and reduces unnecessary variable allocation.
+          <br><small>Benefit: Reduced cognitive complexity, fewer intermediate variables, cleaner and more maintainable code</small>
+        </li>
+      
+        <li><strong>simplify — high</strong>:
+          Remove unused &#39;divide&#39; function. This function is defined but never called in the code. Dead code should be eliminated to reduce maintenance burden and clarify intent.
+          <br><small>Benefit: Reduces code clutter, improves maintainability, eliminates dead code, clarifies which functions are actually used</small>
+        </li>
+      
+        <li><strong>modernize — low</strong>:
+          Remove console.log for production code or move to appropriate logging framework. Console.log statements left in production can expose internal logic and clutter application output. Consider removing or moving to a proper logging system.
+          <br><small>Benefit: Cleaner production code, prevents information leakage through console output, improves professionalism of application</small>
+        </li>
+      </ul>
+        </section>
+      
+
+  <footer>Generated at 2026-10-18T11:45:00Z · Duration: 179398 ms</footer>
+</body>
+</html>
